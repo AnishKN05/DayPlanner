@@ -174,7 +174,7 @@ export default function CalendarScreen() {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Task Reminder 📋',
-        body: task.title,
+        body: 'You have a task due!',
       },
       trigger: scheduledDate,
     });
@@ -237,7 +237,7 @@ export default function CalendarScreen() {
 
           <FlatList
             data={tasksByDate[selectedDate] || []}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.id.toString()}
             renderItem={({ item }) => (
               <View style={styles.taskItem}>
                 <Text style={[styles.taskText, item.completed && { textDecorationLine: 'line-through', color: 'gray' }]}>
