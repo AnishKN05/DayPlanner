@@ -1,96 +1,29 @@
-// import React, { useState, useEffect } from 'react';
-// import { View, Text, Modal, Button, TextInput, StyleSheet } from 'react-native';
-// import { Calendar } from 'react-native-calendars';
-// import { openDatabase } from 'expo-sqlite';
 
-// const db = openDatabase('tasks.db');
-
-// export default function CalendarScreen() {
-//   const [selectedDate, setSelectedDate] = useState('');
-//   const [modalVisible, setModalVisible] = useState(false);
-//   const [task, setTask] = useState('');
-//   const [markedDates, setMarkedDates] = useState({});
-
-//   useEffect(() => {
-//     db.transaction(tx => {
-//       tx.executeSql(
-//         'CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT, task TEXT);'
-//       );
-//     });
-//   }, []);
-
-//   const addTask = () => {
-//     db.transaction(tx => {
-//       tx.executeSql('INSERT INTO tasks (date, task) VALUES (?, ?);', [selectedDate, task]);
-//     });
-//     setMarkedDates({
-//       ...markedDates,
-//       [selectedDate]: { marked: true, dotColor: 'blue' }
-//     });
-//     setTask('');
-//     setModalVisible(false);
-//   };
-
-//   const today = new Date().toISOString().split('T')[0];
-
-//   return (
-//     <View style={styles.container}>
-//       <Calendar
-//         onDayPress={day => {
-//           setSelectedDate(day.dateString);
-//           setModalVisible(true);
-//         }}
-//         markedDates={{
-//           [today]: { selected: true, selectedColor: 'green' },
-//           ...markedDates,
-//         }}
-//       />
-
-//       <Modal visible={modalVisible} animationType="slide" transparent>
-//         <View style={styles.modal}>
-//           <Text>Add Task for {selectedDate}</Text>
-//           <TextInput
-//             value={task}
-//             onChangeText={setTask}
-//             placeholder="Enter task"
-//             style={styles.input}
-//           />
-//           <Button title="Add Task" onPress={addTask} />
-//           <Button title="Close" onPress={() => setModalVisible(false)} />
-//         </View>
-//       </Modal>
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: { flex: 1, marginTop: 50 },
-//   modal: {
-//     backgroundColor: 'white',
-//     padding: 20,
-//     margin: 20,
-//     borderRadius: 10,
-//     elevation: 5,
-//   },
-//   input: {
-//     borderColor: '#ccc',
-//     borderWidth: 1,
-//     padding: 10,
-//     marginVertical: 10,
-//   },
-// });
-// src/screens/CalendarScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, Button, TextInput, StyleSheet, FlatList, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  Modal,
+  Button,
+  TextInput,
+  StyleSheet,
+  FlatList,
+  Platform,
+} from 'react-native';
 import { Calendar, DateObject } from 'react-native-calendars';
-import { initDB, insertTask, fetchTasks, removeTask, markTaskCompleted } from '../services/db';
+import {
+  initDB,
+  insertTask,
+  fetchTasks,
+  removeTask,
+  markTaskCompleted,
+} from '../services/db';
 import { Task } from '../types';
 import * as Notifications from 'expo-notifications';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import uuid from 'react-native-uuid';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Configure notifications
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -100,13 +33,13 @@ Notifications.setNotificationHandler({
 });
 
 export default function CalendarScreen() {
-  const [selectedDate, setSelectedDate] = useState('');
-  const [modalVisible, setModalVisible] = useState(false);
-  const [taskTitle, setTaskTitle] = useState('');
-  const [taskTime, setTaskTime] = useState(new Date());
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>('');
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [taskTitle, setTaskTitle] = useState<string>('');
+  const [taskTime, setTaskTime] = useState<Date>(new Date());
+  const [showTimePicker, setShowTimePicker] = useState<boolean>(false);
   const [tasksByDate, setTasksByDate] = useState<{ [key: string]: Task[] }>({});
-  const [markedDates, setMarkedDates] = useState({});
+  const [markedDates, setMarkedDates] = useState<any>({});
 
   useEffect(() => {
     initDB();
@@ -117,16 +50,16 @@ export default function CalendarScreen() {
     const today = new Date().toISOString().split('T')[0];
     try {
       const tasksString = await AsyncStorage.getItem('tasks');
-      const allTasks = tasksString ? JSON.parse(tasksString) : {};
+      const allTasks: { [key: string]: Task[] } = tasksString
+        ? JSON.parse(tasksString)
+        : {};
 
       const marks: any = {};
-
       Object.keys(allTasks).forEach((date) => {
         if (allTasks[date].length > 0) {
           marks[date] = { marked: true, dotColor: 'blue' };
         }
       });
-
       if (!marks[today]) {
         marks[today] = { selected: true, selectedColor: 'green' };
       }
@@ -144,13 +77,12 @@ export default function CalendarScreen() {
   };
 
   const handleAddTask = async () => {
-    if (taskTitle.trim() === '') return;
+    if (taskTitle.trim() === '' || !selectedDate) return;
 
-    const timeString = taskTime.toTimeString().slice(0, 5); // HH:MM
-
+    const timeString = taskTime.toTimeString().slice(0, 5);
     const newTask: Task = {
       id: uuid.v4().toString(),
-      title: taskTitle,
+      title: taskTitle.trim(),
       date: selectedDate,
       time: timeString,
       completed: false,
@@ -158,7 +90,6 @@ export default function CalendarScreen() {
 
     await insertTask(newTask);
     scheduleExactNotification(newTask);
-
     setTaskTitle('');
     setTaskTime(new Date());
     setModalVisible(false);
@@ -168,15 +99,20 @@ export default function CalendarScreen() {
   const scheduleExactNotification = async (task: Task) => {
     const [hour, minute] = task.time.split(':').map(Number);
     const [year, month, day] = task.date.split('-').map(Number);
-
-    const scheduledDate = new Date(year, month - 1, day, hour, minute);
+    const triggerTimestamp = new Date(
+      year,
+      month - 1,
+      day,
+      hour,
+      minute
+    ).getTime();
 
     await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Task Reminder 📋',
-        body: 'You have a task due!',
+        body: `${task.title} at ${task.time}`,
       },
-      trigger: scheduledDate,
+      trigger: { type: 'timestamp', timestamp: triggerTimestamp },
     });
   };
 
@@ -189,8 +125,6 @@ export default function CalendarScreen() {
     await markTaskCompleted(selectedDate, taskId);
     loadAllTasks();
   };
-
-  const today = new Date().toISOString().split('T')[0];
 
   return (
     <View style={styles.container}>
@@ -219,15 +153,14 @@ export default function CalendarScreen() {
           />
 
           <Button title="Pick Time" onPress={() => setShowTimePicker(true)} />
-
           {showTimePicker && (
             <DateTimePicker
               value={taskTime}
               mode="time"
-              is24Hour={true}
+              is24Hour
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-              onChange={(event, selectedTime) => {
-                if (selectedTime) setTaskTime(selectedTime);
+              onChange={(_, selected) => {
+                if (selected) setTaskTime(selected);
                 setShowTimePicker(false);
               }}
             />
@@ -237,23 +170,44 @@ export default function CalendarScreen() {
 
           <FlatList
             data={tasksByDate[selectedDate] || []}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item, index) =>
+              item.id ? item.id.toString() : index.toString()
+            }
             renderItem={({ item }) => (
               <View style={styles.taskItem}>
-                <Text style={[styles.taskText, item.completed && { textDecorationLine: 'line-through', color: 'gray' }]}>
+                <Text
+                  style={[
+                    styles.taskText,
+                    item.completed && {
+                      textDecorationLine: 'line-through',
+                      color: 'gray',
+                    },
+                  ]}
+                >
                   {item.title} ({item.time})
                 </Text>
                 <View style={styles.taskButtons}>
                   {!item.completed && (
-                    <Button title="Done" onPress={() => handleMarkComplete(item.id)} />
+                    <Button
+                      title="Done"
+                      onPress={() => handleMarkComplete(item.id)}
+                    />
                   )}
-                  <Button title="Delete" onPress={() => handleDeleteTask(item.id)} color="red" />
+                  <Button
+                    title="Delete"
+                    onPress={() => handleDeleteTask(item.id)}
+                    color="red"
+                  />
                 </View>
               </View>
             )}
           />
 
-          <Button title="Close" onPress={() => setModalVisible(false)} color="red" />
+          <Button
+            title="Close"
+            onPress={() => setModalVisible(false)}
+            color="red"
+          />
         </View>
       </Modal>
     </View>
@@ -275,6 +229,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 10,
     marginVertical: 10,
+    borderRadius: 5,
   },
   modalTitle: {
     fontSize: 18,

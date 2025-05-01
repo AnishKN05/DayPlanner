@@ -1,10 +1,5 @@
 
-// import React from 'react';
-// import PlannerScreen from './screens/PlannerScreen';
 
-// export default function App() {
-//   return <PlannerScreen />;
-// }
 import React, { useEffect } from 'react';
 import CalendarScreen from './screens/CalendarScreen';
 import * as Notifications from 'expo-notifications';
