@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TextInput, Button, StyleSheet } from 'react-native';
 
 interface TaskModalProps {
@@ -12,9 +12,15 @@ interface TaskModalProps {
 const TaskModal: React.FC<TaskModalProps> = ({ visible, onClose, onSave, selectedDate }) => {
   const [task, setTask] = useState('');
 
+  useEffect(() => {
+    setTask(''); // Reset task whenever modal is opened
+  }, [visible]);
+
   const handleSave = () => {
-    onSave(task);
-    setTask('');
+    if (task.trim()) {
+      onSave(task);
+      setTask('');
+    }
     onClose();
   };
 
@@ -58,6 +64,7 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
     marginBottom: 10,
     padding: 8,
+    borderRadius: 5,
   },
 });
 

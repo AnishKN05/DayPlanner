@@ -1,7 +1,19 @@
 
-import React from 'react';
-import PlannerScreen from './screens/PlannerScreen';
+
+import React, { useEffect } from 'react';
+import CalendarScreen from './screens/CalendarScreen';
+import * as Notifications from 'expo-notifications';
+import { initDB } from './services/db';
 
 export default function App() {
-  return <PlannerScreen />;
+  useEffect(() => {
+    const setup = async () => {
+      await Notifications.requestPermissionsAsync();
+      await initDB();
+    };
+
+    setup();
+  }, []);
+
+  return <CalendarScreen />;
 }
