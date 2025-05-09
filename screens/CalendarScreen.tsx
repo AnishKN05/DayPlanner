@@ -9,6 +9,8 @@ import {
   FlatList,
   Platform,
   ScrollView,
+  Modal,
+  Alert,
 } from 'react-native';
 import { Calendar, DateObject } from 'react-native-calendars';
 import {
@@ -45,6 +47,11 @@ export default function CalendarScreen() {
   const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
   const [showPrevious, setShowPrevious] = useState<boolean>(false);
   const [showCompleted, setShowCompleted] = useState<boolean>(false);
+
+  // State for editing task
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editTaskData, setEditTaskData] = useState<Task | null>(null);
+  const [editTaskTitle, setEditTaskTitle] = useState('');
 
   useEffect(() => {
     initDB();
@@ -159,6 +166,27 @@ export default function CalendarScreen() {
     loadAllTasks();
   };
 
+  const handleEditTask = (task: Task) => {
+    setEditTaskData(task);
+    setEditTaskTitle(task.title);
+    setEditModalVisible(true);
+  };
+
+  const submitEditTask = async () => {
+    if (editTaskData && editTaskTitle.trim()) {
+      const updated = { ...editTaskData, title: editTaskTitle.trim() };
+      const updatedTasks = tasksByDate[editTaskData.date].map((t) =>
+        t.id === editTaskData.id ? updated : t
+      );
+      const updatedMap = { ...tasksByDate, [editTaskData.date]: updatedTasks };
+      await AsyncStorage.setItem('tasks', JSON.stringify(updatedMap));
+      setEditModalVisible(false);
+      setEditTaskData(null);
+      setEditTaskTitle('');
+      loadAllTasks();
+    }
+  };
+
   const themeColors = {
     background: isDarkMode ? '#121212' : '#f2f2f2',
     text: isDarkMode ? '#ffffff' : '#000000',
@@ -166,6 +194,18 @@ export default function CalendarScreen() {
     inputText: isDarkMode ? '#ffffff' : '#000000',
     placeholder: isDarkMode ? '#aaa' : '#666',
   };
+
+  const renderFormattedTask = (task: Task) => (
+    <Text key={task.id} style={{ color: themeColors.text, marginVertical: 4 }}>
+      {formatDate(task.date)} - <Text style={{ fontWeight: 'bold' }}>{task.title}</Text> ({task.time}){' '}
+      <Text
+        onPress={() => handleEditTask(task)}
+        style={{ color: 'blue', textDecorationLine: 'underline' }}
+      >
+        Edit
+      </Text>
+    </Text>
+  );
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: themeColors.background }}>
@@ -194,19 +234,13 @@ export default function CalendarScreen() {
           }}
         />
 
-        {/* UPCOMING TASKS */}
         <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Upcoming Tasks</Text>
         {upcomingTasks.length === 0 ? (
           <Text style={{ color: themeColors.text }}>No upcoming tasks.</Text>
         ) : (
-          upcomingTasks.map((task) => (
-            <Text key={task.id} style={{ color: themeColors.text }}>
-              {formatDate(task.date)}{"\n"}{task.time} - {task.title}
-            </Text>
-          ))
+          upcomingTasks.map(renderFormattedTask)
         )}
 
-        {/* PREVIOUS TASKS */}
         <Button
           title={showPrevious ? 'Hide Previous Tasks' : 'Show Previous Tasks'}
           onPress={() => setShowPrevious(!showPrevious)}
@@ -217,16 +251,11 @@ export default function CalendarScreen() {
             {previousTasks.length === 0 ? (
               <Text style={{ color: themeColors.text }}>No previous tasks.</Text>
             ) : (
-              previousTasks.map((task) => (
-                <Text key={task.id} style={{ color: themeColors.text }}>
-                  {formatDate(task.date)}{"\n"}{task.time} - {task.title}
-                </Text>
-              ))
+              previousTasks.map(renderFormattedTask)
             )}
           </>
         )}
 
-        {/* COMPLETED TASKS */}
         <Button
           title={showCompleted ? 'Hide Completed Tasks' : 'Show Completed Tasks'}
           onPress={() => setShowCompleted(!showCompleted)}
@@ -238,8 +267,9 @@ export default function CalendarScreen() {
               <Text style={{ color: themeColors.text }}>No completed tasks.</Text>
             ) : (
               completedTasks.map((task) => (
-                <Text key={task.id} style={{ color: themeColors.text }}>
-                  {formatDate(task.date)}{"\n"}{task.time} - {task.title} <Text style={{ fontStyle: 'italic' }}>(task completed)</Text>
+                <Text key={task.id} style={{ color: themeColors.text, marginVertical: 4 }}>
+                  {formatDate(task.date)} - <Text style={{ fontWeight: 'bold' }}>{task.title}</Text> ({task.time}){' '}
+                  <Text style={{ fontStyle: 'italic' }}>(task completed)</Text>
                 </Text>
               ))
             )}
@@ -289,12 +319,7 @@ export default function CalendarScreen() {
               }
               renderItem={({ item }) => (
                 <View style={styles.taskItem}>
-                  <Text
-                    style={[
-                      styles.taskText,
-                      { color: themeColors.text },
-                    ]}
-                  >
+                  <Text style={[styles.taskText, { color: themeColors.text }]}>
                     {item.title} ({item.time})
                   </Text>
                   <View style={styles.taskButtons}>
@@ -310,6 +335,27 @@ export default function CalendarScreen() {
             <Button title="Hide Tasks" onPress={() => setSelectedDate('')} color="red" />
           </View>
         )}
+
+        {/* Edit Modal */}
+        <Modal visible={editModalVisible} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.taskPanel, { backgroundColor: themeColors.inputBg }]}>
+              <Text style={[styles.modalTitle, { color: themeColors.text }]}>Edit Task</Text>
+              <TextInput
+                value={editTaskTitle}
+                onChangeText={setEditTaskTitle}
+                placeholder="New task title"
+                placeholderTextColor={themeColors.placeholder}
+                style={[
+                  styles.input,
+                  { backgroundColor: themeColors.inputBg, color: themeColors.inputText },
+                ]}
+              />
+              <Button title="Save Changes" onPress={submitEditTask} />
+              <Button title="Cancel" color="red" onPress={() => setEditModalVisible(false)} />
+            </View>
+          </View>
+        </Modal>
       </View>
     </ScrollView>
   );
@@ -359,5 +405,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 20,
     marginBottom: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
 });
