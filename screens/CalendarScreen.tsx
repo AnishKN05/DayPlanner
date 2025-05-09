@@ -8,7 +8,6 @@ import {
   StyleSheet,
   FlatList,
   Platform,
-  useColorScheme,
   ScrollView,
 } from 'react-native';
 import { Calendar, DateObject } from 'react-native-calendars';
@@ -41,6 +40,9 @@ export default function CalendarScreen() {
   const [tasksByDate, setTasksByDate] = useState<{ [key: string]: Task[] }>({});
   const [markedDates, setMarkedDates] = useState<any>({});
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
+  const [previousTasks, setPreviousTasks] = useState<Task[]>([]);
+  const [showPrevious, setShowPrevious] = useState<boolean>(false);
 
   useEffect(() => {
     initDB();
@@ -75,8 +77,22 @@ export default function CalendarScreen() {
         marks[today] = { selected: true, selectedColor: 'green' };
       }
 
+      const upcoming: Task[] = [];
+      const previous: Task[] = [];
+      Object.entries(allTasks).forEach(([date, tasks]) => {
+        tasks.forEach((task) => {
+          if (date >= today) {
+            upcoming.push(task);
+          } else {
+            previous.push(task);
+          }
+        });
+      });
+
       setTasksByDate(allTasks);
       setMarkedDates(marks);
+      setUpcomingTasks(upcoming);
+      setPreviousTasks(previous);
     } catch (error) {
       console.error('Error loading tasks', error);
     }
@@ -108,13 +124,7 @@ export default function CalendarScreen() {
   const scheduleExactNotification = async (task: Task) => {
     const [hour, minute] = task.time.split(':').map(Number);
     const [year, month, day] = task.date.split('-').map(Number);
-    const triggerTimestamp = new Date(
-      year,
-      month - 1,
-      day,
-      hour,
-      minute
-    ).getTime();
+    const triggerTimestamp = new Date(year, month - 1, day, hour, minute).getTime();
 
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -170,19 +180,41 @@ export default function CalendarScreen() {
           }}
         />
 
+        {/* UPCOMING TASKS */}
+        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Upcoming Tasks</Text>
+        {upcomingTasks.length === 0 ? (
+          <Text style={{ color: themeColors.text }}>No upcoming tasks.</Text>
+        ) : (
+          upcomingTasks.map((task) => (
+            <Text key={task.id} style={{ color: themeColors.text }}>
+              • {task.title} - {task.date} {task.time}
+            </Text>
+          ))
+        )}
+
+        {/* TOGGLE PREVIOUS TASKS */}
+        <Button
+          title={showPrevious ? 'Hide Previous Tasks' : 'Show Previous Tasks'}
+          onPress={() => setShowPrevious(!showPrevious)}
+        />
+        {showPrevious && (
+          <>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Previous Tasks</Text>
+            {previousTasks.length === 0 ? (
+              <Text style={{ color: themeColors.text }}>No previous tasks.</Text>
+            ) : (
+              previousTasks.map((task) => (
+                <Text key={task.id} style={{ color: themeColors.text }}>
+                  • {task.title} - {task.date} {task.time}
+                </Text>
+              ))
+            )}
+          </>
+        )}
+
         {selectedDate !== '' && (
-          <View
-            style={[
-              styles.taskPanel,
-              { backgroundColor: themeColors.inputBg },
-            ]}
-          >
-            <Text
-              style={[
-                styles.modalTitle,
-                { color: themeColors.text },
-              ]}
-            >
+          <View style={[styles.taskPanel, { backgroundColor: themeColors.inputBg }]}>
+            <Text style={[styles.modalTitle, { color: themeColors.text }]}>
               Tasks for {selectedDate}
             </Text>
 
@@ -227,35 +259,22 @@ export default function CalendarScreen() {
                     style={[
                       styles.taskText,
                       { color: item.completed ? 'gray' : themeColors.text },
-                      item.completed && {
-                        textDecorationLine: 'line-through',
-                      },
+                      item.completed && { textDecorationLine: 'line-through' },
                     ]}
                   >
                     {item.title} ({item.time})
                   </Text>
                   <View style={styles.taskButtons}>
                     {!item.completed && (
-                      <Button
-                        title="Done"
-                        onPress={() => handleMarkComplete(item.id)}
-                      />
+                      <Button title="Done" onPress={() => handleMarkComplete(item.id)} />
                     )}
-                    <Button
-                      title="Delete"
-                      onPress={() => handleDeleteTask(item.id)}
-                      color="red"
-                    />
+                    <Button title="Delete" onPress={() => handleDeleteTask(item.id)} color="red" />
                   </View>
                 </View>
               )}
             />
 
-            <Button
-              title="Hide Tasks"
-              onPress={() => setSelectedDate('')}
-              color="red"
-            />
+            <Button title="Hide Tasks" onPress={() => setSelectedDate('')} color="red" />
           </View>
         )}
       </View>
@@ -301,5 +320,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginLeft: 10,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 10,
   },
 });
