@@ -42,7 +42,9 @@ export default function CalendarScreen() {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
   const [upcomingTasks, setUpcomingTasks] = useState<Task[]>([]);
   const [previousTasks, setPreviousTasks] = useState<Task[]>([]);
+  const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
   const [showPrevious, setShowPrevious] = useState<boolean>(false);
+  const [showCompleted, setShowCompleted] = useState<boolean>(false);
 
   useEffect(() => {
     initDB();
@@ -58,6 +60,13 @@ export default function CalendarScreen() {
   useEffect(() => {
     AsyncStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = date.toLocaleString('default', { month: 'short' });
+    return `${day}-${month}`;
+  };
 
   const loadAllTasks = async () => {
     const today = new Date().toISOString().split('T')[0];
@@ -79,9 +88,13 @@ export default function CalendarScreen() {
 
       const upcoming: Task[] = [];
       const previous: Task[] = [];
+      const completed: Task[] = [];
+
       Object.entries(allTasks).forEach(([date, tasks]) => {
         tasks.forEach((task) => {
-          if (date >= today) {
+          if (task.completed) {
+            completed.push(task);
+          } else if (date >= today) {
             upcoming.push(task);
           } else {
             previous.push(task);
@@ -93,6 +106,7 @@ export default function CalendarScreen() {
       setMarkedDates(marks);
       setUpcomingTasks(upcoming);
       setPreviousTasks(previous);
+      setCompletedTasks(completed);
     } catch (error) {
       console.error('Error loading tasks', error);
     }
@@ -187,12 +201,12 @@ export default function CalendarScreen() {
         ) : (
           upcomingTasks.map((task) => (
             <Text key={task.id} style={{ color: themeColors.text }}>
-              • {task.title} - {task.date} {task.time}
+              {formatDate(task.date)}{"\n"}{task.time} - {task.title}
             </Text>
           ))
         )}
 
-        {/* TOGGLE PREVIOUS TASKS */}
+        {/* PREVIOUS TASKS */}
         <Button
           title={showPrevious ? 'Hide Previous Tasks' : 'Show Previous Tasks'}
           onPress={() => setShowPrevious(!showPrevious)}
@@ -205,7 +219,27 @@ export default function CalendarScreen() {
             ) : (
               previousTasks.map((task) => (
                 <Text key={task.id} style={{ color: themeColors.text }}>
-                  • {task.title} - {task.date} {task.time}
+                  {formatDate(task.date)}{"\n"}{task.time} - {task.title}
+                </Text>
+              ))
+            )}
+          </>
+        )}
+
+        {/* COMPLETED TASKS */}
+        <Button
+          title={showCompleted ? 'Hide Completed Tasks' : 'Show Completed Tasks'}
+          onPress={() => setShowCompleted(!showCompleted)}
+        />
+        {showCompleted && (
+          <>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Completed Tasks</Text>
+            {completedTasks.length === 0 ? (
+              <Text style={{ color: themeColors.text }}>No completed tasks.</Text>
+            ) : (
+              completedTasks.map((task) => (
+                <Text key={task.id} style={{ color: themeColors.text }}>
+                  {formatDate(task.date)}{"\n"}{task.time} - {task.title} <Text style={{ fontStyle: 'italic' }}>(task completed)</Text>
                 </Text>
               ))
             )}
@@ -258,8 +292,7 @@ export default function CalendarScreen() {
                   <Text
                     style={[
                       styles.taskText,
-                      { color: item.completed ? 'gray' : themeColors.text },
-                      item.completed && { textDecorationLine: 'line-through' },
+                      { color: themeColors.text },
                     ]}
                   >
                     {item.title} ({item.time})
